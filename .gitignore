@@ -1,0 +1,35 @@
+# Build output
+target/
+build/
+dist/
+node_modules/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Maven
+.mvn/
+mvnw
+mvnw.cmd
+
+# Test output
+test-output/
+surefire-reports/
+failsafe-reports/

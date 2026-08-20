@@ -1,0 +1,126 @@
+services:
+  # ─── E-Commerce Core Group 1 ───────────────────────────
+  core-group-1:
+    profiles: ["core", "all"]
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.grouped
+    container_name: core-group-1
+    ports:
+      - "8081:8081"
+      - "8082:8082"
+    env_file:
+      - ../.env
+    environment:
+      STARTUP_SERVICES: "order-service:8081 payment-service:8082"
+      NEON_HOST: ${NEON_HOST}
+      NEON_USER: ${NEON_USER}
+      NEON_PASSWORD: ${NEON_PASSWORD}
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
+      KAFKA_USERNAME: ${KAFKA_USERNAME}
+      KAFKA_PASSWORD: ${KAFKA_PASSWORD}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      REDIS_USERNAME: ${REDIS_USERNAME}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    mem_limit: 550m
+    networks:
+      eventflow-net:
+        aliases:
+          - order-service
+          - payment-service
+    restart: unless-stopped
+
+  # ─── E-Commerce Core Group 2 ───────────────────────────
+  core-group-2:
+    profiles: ["core", "all"]
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.grouped
+    container_name: core-group-2
+    ports:
+      - "8083:8083"
+      - "8084:8084"
+      - "8085:8085"
+    env_file:
+      - ../.env
+    environment:
+      STARTUP_SERVICES: "inventory-service:8083 shipping-service:8084 notification-service:8085"
+      NEON_HOST: ${NEON_HOST}
+      NEON_USER: ${NEON_USER}
+      NEON_PASSWORD: ${NEON_PASSWORD}
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
+      KAFKA_USERNAME: ${KAFKA_USERNAME}
+      KAFKA_PASSWORD: ${KAFKA_PASSWORD}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      REDIS_USERNAME: ${REDIS_USERNAME}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      MAIL_HOST: ${MAIL_HOST}
+      MAIL_PORT: ${MAIL_PORT}
+      MAIL_USERNAME: ${MAIL_USERNAME}
+      MAIL_PASSWORD: ${MAIL_PASSWORD}
+    mem_limit: 700m
+    networks:
+      eventflow-net:
+        aliases:
+          - inventory-service
+          - shipping-service
+          - notification-service
+    restart: unless-stopped
+
+  # ─── Incident Analytics Group ──────────────────────────
+  ai-group:
+    profiles: ["ai", "all"]
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.grouped
+    container_name: ai-group
+    ports:
+      - "8091:8091"
+      - "8092:8092"
+      - "8093:8093"
+    env_file:
+      - ../.env
+    environment:
+      STARTUP_SERVICES: "incident-query:8091 incident-detector:8092 incident-analyzer:8093"
+      NEON_HOST: ${NEON_HOST}
+      NEON_USER: ${NEON_USER}
+      NEON_PASSWORD: ${NEON_PASSWORD}
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
+      KAFKA_USERNAME: ${KAFKA_USERNAME}
+      KAFKA_PASSWORD: ${KAFKA_PASSWORD}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      REDIS_USERNAME: ${REDIS_USERNAME}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      CHROMADB_HOST: ${CHROMADB_HOST:-localhost}
+      CHROMADB_PORT: ${CHROMADB_PORT:-8000}
+    mem_limit: 700m
+    networks:
+      eventflow-net:
+        aliases:
+          - incident-query
+          - incident-detector
+          - incident-analyzer
+    restart: unless-stopped
+
+  # ─── Operations Dashboard ──────────────────────────────
+  dashboard:
+    profiles: ["core", "ai", "all"]
+    build:
+      context: ../dashboard
+      dockerfile: Dockerfile
+    container_name: incident-dashboard
+    ports:
+      - "3000:80"
+    mem_limit: 50m
+    networks:
+      - eventflow-net
+    restart: unless-stopped
+
+networks:
+  eventflow-net:
+    name: docker_eventflow-net
+    external: true

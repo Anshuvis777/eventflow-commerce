@@ -1,0 +1,37 @@
+FROM maven:3.9-eclipse-temurin-21 AS build
+WORKDIR /app
+COPY pom.xml .
+COPY eventflow-common/ eventflow-common/
+COPY order-service/ order-service/
+COPY payment-service/ payment-service/
+COPY inventory-service/ inventory-service/
+COPY shipping-service/ shipping-service/
+COPY notification-service/ notification-service/
+COPY incident-detector/ incident-detector/
+COPY incident-analyzer/ incident-analyzer/
+COPY incident-query/ incident-query/
+RUN mvn clean package -DskipTests
+
+FROM eclipse-temurin:21-jre-alpine
+COPY docker/certs/aiven-ca.pem /tmp/aiven-ca.pem
+RUN keytool -importcert -noprompt -trustcacerts -alias aiven-ca -file /tmp/aiven-ca.pem -keystore /opt/java/openjdk/lib/security/cacerts -storepass changeit && rm /tmp/aiven-ca.pem
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+WORKDIR /app
+
+# Copy all 8 built jars
+COPY --from=build /app/order-service/target/*.jar /app/order-service.jar
+COPY --from=build /app/payment-service/target/*.jar /app/payment-service.jar
+COPY --from=build /app/inventory-service/target/*.jar /app/inventory-service.jar
+COPY --from=build /app/shipping-service/target/*.jar /app/shipping-service.jar
+COPY --from=build /app/notification-service/target/*.jar /app/notification-service.jar
+COPY --from=build /app/incident-detector/target/*.jar /app/incident-detector.jar
+COPY --from=build /app/incident-analyzer/target/*.jar /app/incident-analyzer.jar
+COPY --from=build /app/incident-query/target/*.jar /app/incident-query.jar
+
+# Copy launcher script
+COPY docker/entrypoint-grouped.sh /app/entrypoint-grouped.sh
+RUN chmod +x /app/entrypoint-grouped.sh
+
+USER appuser
+ENV JAVA_OPTS="-Xms48m -Xmx96m -XX:MaxMetaspaceSize=128m -XX:+UseG1GC -XX:MaxGCPauseMillis=50"
+ENTRYPOINT ["sh", "/app/entrypoint-grouped.sh"]

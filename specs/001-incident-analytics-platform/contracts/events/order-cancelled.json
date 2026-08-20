@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "eventflowcommerce/order-cancelled",
+  "title": "OrderCancelled",
+  "description": "Emitted when an order is cancelled — failure event that triggers incident creation",
+  "type": "object",
+  "required": ["event_id", "event_type", "correlation_id", "service_name", "timestamp", "severity", "payload"],
+  "properties": {
+    "event_id": { "type": "string", "format": "uuid" },
+    "event_type": { "const": "OrderCancelled" },
+    "correlation_id": { "type": "string" },
+    "service_name": { "const": "order-service" },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "severity": { "const": "MEDIUM" },
+    "payload": {
+      "type": "object",
+      "required": ["order_id", "reason", "cancelled_by"],
+      "properties": {
+        "order_id": { "type": "string" },
+        "reason": {
+          "type": "string",
+          "enum": [
+            "PAYMENT_FAILED",
+            "CUSTOMER_REQUEST",
+            "INVENTORY_UNAVAILABLE",
+            "FRAUD_DETECTED",
+            "SYSTEM_ERROR",
+            "TIMEOUT"
+          ]
+        },
+        "cancelled_by": {
+          "type": "string",
+          "enum": ["SYSTEM", "CUSTOMER", "SUPPORT", "ADMIN"]
+        },
+        "cancellation_message": { "type": "string" },
+        "refund_initiated": { "type": "boolean", "default": false }
+      }
+    }
+  }
+}

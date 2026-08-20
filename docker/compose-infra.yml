@@ -1,0 +1,34 @@
+# ================================================================
+# Infrastructure services for grouped deployment.
+#
+# PostgreSQL → Neon (cloud), Kafka → Aiven (cloud), Redis → Redis Cloud
+# These are NOT needed locally — services connect via .env credentials.
+# Only ChromaDB runs locally (no cloud equivalent configured).
+# ================================================================
+
+services:
+  chromadb:
+    image: chromadb/chroma:0.5.23
+    container_name: incident-chromadb
+    ports:
+      - "8000:8000"
+    environment:
+      ANONYMIZED_TELEMETRY: "False"
+      IS_PERSISTENT: "True"
+      PERSIST_DIRECTORY: /chroma/chroma
+    volumes:
+      - chroma-data:/chroma/chroma
+    networks:
+      - eventflow-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  chroma-data:
+
+networks:
+  eventflow-net:
+    driver: bridge

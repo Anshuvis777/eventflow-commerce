@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "eventflowcommerce/shipment-delivered",
+  "title": "ShipmentDelivered",
+  "description": "Emitted when a shipment is delivered — success event, no incident",
+  "type": "object",
+  "required": ["event_id", "event_type", "correlation_id", "service_name", "timestamp", "severity", "payload"],
+  "properties": {
+    "event_id": { "type": "string", "format": "uuid" },
+    "event_type": { "const": "ShipmentDelivered" },
+    "correlation_id": { "type": "string" },
+    "service_name": { "const": "shipment-service" },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "severity": { "const": "LOW" },
+    "payload": {
+      "type": "object",
+      "required": ["shipment_id", "delivered_at"],
+      "properties": {
+        "shipment_id": { "type": "string" },
+        "order_id": { "type": "string" },
+        "delivered_at": { "type": "string", "format": "date-time" },
+        "signed_by": { "type": "string" },
+        "delivery_location": {
+          "type": "string",
+          "enum": ["front_door", "back_door", "mailbox", "reception", "signed_for", "left_with_neighbor"]
+        },
+        "photo_url": { "type": "string", "format": "uri" }
+      }
+    }
+  }
+}

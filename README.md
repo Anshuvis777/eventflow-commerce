@@ -542,8 +542,7 @@ sequenceDiagram
 | 2 | Payment Service | 8082 | `payment-service` | `/api/v1/payments` |
 | 3 | Inventory Service | 8083 | `inventory-service` | `/api/v1/products`, `/api/v1/inventory` |
 | 4 | Shipping Service | 8084 | `shipping-service` | `/api/v1/shipments` |
-| 5 | Email Service | 8085 | `email-service` | `/api/v1/emails` |
-| 6 | Notification Service | 8086 | `notification-service` | `/api/v1/notifications` |
+| 5 | Notification Service | 8085 | `notification-service` | `/api/v1/notifications` |
 
 ---
 
@@ -560,14 +559,7 @@ Each microservice owns its **own PostgreSQL 16 database** — never shared.
 | `eventflow-email-db` | 5436 | `emaildb` | `email_user` | `email-db-data` |
 | `eventflow-notification-db` | 5437 | `notificationdb` | `notification_user` | `notification-db-data` |
 
-All databases use **health checks** with `pg_isready`:
-
-```yaml
-healthcheck:
-  test: ["CMD-SHELL", "pg_isready -U <user> -d <db>"]
-  interval: 10s
-  timeout: 5s
-  retries: 5
+All core services share the `eventflow` database on Neon PostgreSQL. The notification-service uses tables `notification` and `notification_recipient` in the same database.
 ```
 
 ---

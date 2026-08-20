@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "eventflowcommerce/payment-failed",
+  "title": "PaymentFailed",
+  "description": "Emitted when a payment attempt fails — this is a failure event that triggers incident creation",
+  "type": "object",
+  "required": ["event_id", "event_type", "correlation_id", "service_name", "timestamp", "severity", "payload"],
+  "properties": {
+    "event_id": { "type": "string", "format": "uuid" },
+    "event_type": { "const": "PaymentFailed" },
+    "correlation_id": { "type": "string" },
+    "service_name": { "const": "payment-service" },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "severity": { "const": "HIGH" },
+    "payload": {
+      "type": "object",
+      "required": ["order_id", "payment_id", "failure_reason", "amount", "currency"],
+      "properties": {
+        "order_id": { "type": "string", "description": "Related order identifier" },
+        "payment_id": { "type": "string", "description": "Unique payment attempt identifier" },
+        "failure_reason": {
+          "type": "string",
+          "enum": [
+            "INSUFFICIENT_FUNDS",
+            "CARD_DECLINED",
+            "EXPIRED_CARD",
+            "PROCESSING_ERROR",
+            "FRAUD_DETECTED",
+            "NETWORK_TIMEOUT",
+            "GATEWAY_UNAVAILABLE"
+          ]
+        },
+        "failure_message": { "type": "string", "description": "Human-readable failure message" },
+        "amount": { "type": "number", "minimum": 0 },
+        "currency": { "type": "string" },
+        "payment_method": {
+          "type": "string",
+          "enum": ["credit_card", "debit_card", "paypal", "bank_transfer", "crypto"]
+        },
+        "gateway_response": {
+          "type": "object",
+          "properties": {
+            "code": { "type": "string" },
+            "message": { "type": "string" }
+          }
+        }
+      }
+    }
+  }
+}

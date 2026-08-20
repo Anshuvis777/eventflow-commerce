@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "eventflowcommerce/shipment-created",
+  "title": "ShipmentCreated",
+  "description": "Emitted when a shipment is created for an order — success event, no incident",
+  "type": "object",
+  "required": ["event_id", "event_type", "correlation_id", "service_name", "timestamp", "severity", "payload"],
+  "properties": {
+    "event_id": { "type": "string", "format": "uuid" },
+    "event_type": { "const": "ShipmentCreated" },
+    "correlation_id": { "type": "string" },
+    "service_name": { "const": "shipment-service" },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "severity": { "const": "LOW" },
+    "payload": {
+      "type": "object",
+      "required": ["order_id", "shipment_id", "carrier", "items"],
+      "properties": {
+        "order_id": { "type": "string" },
+        "shipment_id": { "type": "string" },
+        "carrier": {
+          "type": "string",
+          "enum": ["UPS", "FedEx", "USPS", "DHL", "USPS"]
+        },
+        "tracking_number": { "type": "string" },
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["product_id", "quantity"],
+            "properties": {
+              "product_id": { "type": "string" },
+              "quantity": { "type": "integer", "minimum": 1 }
+            }
+          }
+        },
+        "estimated_delivery": { "type": "string", "format": "date-time" },
+        "shipping_address": {
+          "type": "object",
+          "properties": {
+            "city": { "type": "string" },
+            "state": { "type": "string" },
+            "zip": { "type": "string" }
+          }
+        }
+      }
+    }
+  }
+}

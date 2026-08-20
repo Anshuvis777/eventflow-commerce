@@ -1,0 +1,730 @@
+openapi: "3.1.0"
+info:
+  title: Incident Analytics Platform - REST API
+  version: "1.0.0"
+  description: |
+    REST API for the Incident Analytics Platform.
+    Provides endpoints for incident management, log queries,
+    AI root cause analysis, and similar incident search.
+  contact:
+    name: EventFlowCommerce Platform Team
+
+servers:
+  - url: http://localhost:8091/api/v1
+    description: Local development server
+
+tags:
+  - name: incidents
+    description: Incident CRUD operations
+  - name: analysis
+    description: AI root cause analysis
+  - name: similar
+    description: Similar incident search via vector embeddings
+  - name: logs
+    description: Centralized log queries
+  - name: health
+    description: Health and readiness checks
+
+paths:
+  /health:
+    get:
+      tags: [health]
+      operationId: getHealth
+      summary: Health check
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+
+  # ─── Incidents ───────────────────────────────────────────────
+
+  /incidents:
+    get:
+      tags: [incidents]
+      operationId: listIncidents
+      summary: List incidents with optional filters
+      parameters:
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/IncidentStatus"
+        - name: severity
+          in: query
+          schema:
+            $ref: "#/components/schemas/Severity"
+        - name: correlation_id
+          in: query
+          schema:
+            type: string
+        - name: service_name
+          in: query
+          schema:
+            type: string
+        - name: start_time
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: end_time
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: Paginated list of incidents
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IncidentListResponse"
+
+    post:
+      tags: [incidents]
+      operationId: createIncident
+      summary: Create a new incident
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IncidentCreate"
+      responses:
+        "201":
+          description: Incident created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IncidentResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          description: Incident with this correlation_id already exists
+
+  /incidents/{incident_id}:
+    get:
+      tags: [incidents]
+      operationId: getIncident
+      summary: Get incident details
+      parameters:
+        - $ref: "#/components/parameters/IncidentId"
+      responses:
+        "200":
+          description: Incident details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IncidentResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    patch:
+      tags: [incidents]
+      operationId: updateIncident
+      summary: Update incident status or fields
+      parameters:
+        - $ref: "#/components/parameters/IncidentId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IncidentUpdate"
+      responses:
+        "200":
+          description: Incident updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IncidentResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /incidents/{incident_id}/timeline:
+    get:
+      tags: [incidents]
+      operationId: getIncidentTimeline
+      summary: Get chronological event timeline for an incident
+      parameters:
+        - $ref: "#/components/parameters/IncidentId"
+      responses:
+        "200":
+          description: Ordered event timeline
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TimelineResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ─── Analysis ────────────────────────────────────────────────
+
+  /incidents/{incident_id}/analysis:
+    get:
+      tags: [analysis]
+      operationId: getAnalysis
+      summary: Get existing AI analysis for an incident
+      parameters:
+        - $ref: "#/components/parameters/IncidentId"
+      responses:
+        "200":
+          description: Analysis result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalysisResponse"
+        "404":
+          description: No analysis exists yet
+
+    post:
+      tags: [analysis]
+      operationId: triggerAnalysis
+      summary: Trigger AI root cause analysis
+      description: |
+        Triggers GPT-4 powered root cause analysis for the incident.
+        The incident must have a timeline with at least 1 event.
+        Returns immediately; poll GET to retrieve result when ready.
+      parameters:
+        - $ref: "#/components/parameters/IncidentId"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnalysisTriggerRequest"
+      responses:
+        "202":
+          description: Analysis triggered, processing async
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalysisTriggeredResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Analysis already in progress
+
+  # ─── Similar Incidents ───────────────────────────────────────
+
+  /incidents/{incident_id}/similar:
+    get:
+      tags: [similar]
+      operationId: getSimilarIncidents
+      summary: Find similar past incidents via vector embeddings
+      parameters:
+        - $ref: "#/components/parameters/IncidentId"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+        - name: min_similarity
+          in: query
+          schema:
+            type: number
+            format: float
+            minimum: 0.0
+            maximum: 1.0
+            default: 0.7
+      responses:
+        "200":
+          description: Ranked similar incidents
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimilarIncidentsResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ─── Logs ────────────────────────────────────────────────────
+
+  /logs:
+    get:
+      tags: [logs]
+      operationId: queryLogs
+      summary: Query centralized logs with filters
+      parameters:
+        - name: correlation_id
+          in: query
+          schema:
+            type: string
+        - name: service_name
+          in: query
+          schema:
+            type: string
+            enum:
+              - order-service
+              - payment-service
+              - inventory-service
+              - shipment-service
+              - incident-detector
+              - incident-analyzer
+              - incident-query
+        - name: level
+          in: query
+          schema:
+            $ref: "#/components/schemas/LogLevel"
+        - name: start_time
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: end_time
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: search
+          in: query
+          description: Full-text search in log message
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: Paginated log entries
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LogListResponse"
+
+  /logs/errors/stats:
+    get:
+      tags: [logs]
+      operationId: getErrorStats
+      summary: Error statistics grouped by service
+      parameters:
+        - name: start_time
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+        - name: end_time
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+      responses:
+        "200":
+          description: Error counts per service
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorStatsResponse"
+
+components:
+  parameters:
+    IncidentId:
+      name: incident_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    BadRequest:
+      description: Invalid request parameters
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+  schemas:
+    # ─── Enums ──────────────────────────────────────────────
+
+    IncidentStatus:
+      type: string
+      enum: [OPEN, ANALYZING, ANALYZED, RESOLVED]
+
+    Severity:
+      type: string
+      enum: [LOW, MEDIUM, HIGH, CRITICAL]
+
+    LogLevel:
+      type: string
+      enum: [DEBUG, INFO, WARN, ERROR, CRITICAL]
+
+    # ─── Incident ───────────────────────────────────────────
+
+    IncidentCreate:
+      type: object
+      required:
+        - correlation_id
+        - severity
+        - title
+      properties:
+        correlation_id:
+          type: string
+          maxLength: 255
+        severity:
+          $ref: "#/components/schemas/Severity"
+        title:
+          type: string
+          maxLength: 500
+        description:
+          type: string
+        affected_services:
+          type: array
+          items:
+            type: string
+        first_event_at:
+          type: string
+          format: date-time
+
+    IncidentUpdate:
+      type: object
+      properties:
+        status:
+          $ref: "#/components/schemas/IncidentStatus"
+        severity:
+          $ref: "#/components/schemas/Severity"
+        title:
+          type: string
+          maxLength: 500
+        description:
+          type: string
+
+    IncidentResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        correlation_id:
+          type: string
+        status:
+          $ref: "#/components/schemas/IncidentStatus"
+        severity:
+          $ref: "#/components/schemas/Severity"
+        title:
+          type: string
+        description:
+          type: string
+        affected_services:
+          type: array
+          items:
+            type: string
+        duration_seconds:
+          type: integer
+          nullable: true
+        first_event_at:
+          type: string
+          format: date-time
+        last_event_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    IncidentListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/IncidentResponse"
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+
+    # ─── Timeline ───────────────────────────────────────────
+
+    TimelineEvent:
+      type: object
+      properties:
+        event_id:
+          type: string
+        event_type:
+          type: string
+        service_name:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        payload:
+          type: object
+        severity:
+          $ref: "#/components/schemas/Severity"
+
+    TimelineResponse:
+      type: object
+      properties:
+        incident_id:
+          type: string
+          format: uuid
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/TimelineEvent"
+        total_duration_seconds:
+          type: integer
+        event_count:
+          type: integer
+        affected_services:
+          type: array
+          items:
+            type: string
+
+    # ─── Analysis ───────────────────────────────────────────
+
+    AnalysisTriggerRequest:
+      type: object
+      properties:
+        force:
+          type: boolean
+          default: false
+          description: Re-run analysis even if one exists
+
+    AnalysisTriggeredResponse:
+      type: object
+      properties:
+        incident_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [ANALYZING]
+        message:
+          type: string
+
+    AnalysisResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        incident_id:
+          type: string
+          format: uuid
+        root_cause:
+          type: string
+        impact:
+          type: string
+        contributing_factors:
+          type: array
+          items:
+            type: string
+        recommended_actions:
+          type: array
+          items:
+            type: string
+        prevention_measures:
+          type: array
+          items:
+            type: string
+        confidence_score:
+          type: integer
+          minimum: 0
+          maximum: 100
+        model_version:
+          type: string
+        prompt_tokens:
+          type: integer
+          nullable: true
+        completion_tokens:
+          type: integer
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    # ─── Similar Incidents ──────────────────────────────────
+
+    SimilarIncident:
+      type: object
+      properties:
+        incident_id:
+          type: string
+          format: uuid
+        correlation_id:
+          type: string
+        title:
+          type: string
+        severity:
+          $ref: "#/components/schemas/Severity"
+        status:
+          $ref: "#/components/schemas/IncidentStatus"
+        similarity_score:
+          type: number
+          format: float
+          minimum: 0.0
+          maximum: 1.0
+        matched_on:
+          type: string
+          description: What was matched (embedding, timeline, error_pattern)
+        root_cause_summary:
+          type: string
+          nullable: true
+
+    SimilarIncidentsResponse:
+      type: object
+      properties:
+        incident_id:
+          type: string
+          format: uuid
+        similar_incidents:
+          type: array
+          items:
+            $ref: "#/components/schemas/SimilarIncident"
+        query_time_ms:
+          type: integer
+
+    # ─── Logs ───────────────────────────────────────────────
+
+    LogEntry:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        correlation_id:
+          type: string
+        service_name:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        level:
+          $ref: "#/components/schemas/LogLevel"
+        message:
+          type: string
+        metadata:
+          type: object
+        trace_id:
+          type: string
+          nullable: true
+        span_id:
+          type: string
+          nullable: true
+
+    LogListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/LogEntry"
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+
+    ErrorStatsResponse:
+      type: object
+      properties:
+        period:
+          type: object
+          properties:
+            start_time:
+              type: string
+              format: date-time
+            end_time:
+              type: string
+              format: date-time
+        services:
+          type: array
+          items:
+            type: object
+            properties:
+              service_name:
+                type: string
+              error_count:
+                type: integer
+              critical_count:
+                type: integer
+              top_errors:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    message:
+                      type: string
+                    count:
+                      type: integer
+
+    # ─── Common ─────────────────────────────────────────────
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+        version:
+          type: string
+        uptime_seconds:
+          type: integer
+        checks:
+          type: object
+          properties:
+            kafka:
+              type: string
+              enum: [connected, disconnected]
+            postgresql:
+              type: string
+              enum: [connected, disconnected]
+            chromadb:
+              type: string
+              enum: [connected, disconnected]
+            openai:
+              type: string
+              enum: [connected, disconnected, not_configured]
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        detail:
+          type: string
+        timestamp:
+          type: string
+          format: date-time

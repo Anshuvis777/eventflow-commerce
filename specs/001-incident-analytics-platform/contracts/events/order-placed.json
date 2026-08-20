@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "eventflowcommerce/order-placed",
+  "title": "OrderPlaced",
+  "description": "Emitted when a customer successfully places an order",
+  "type": "object",
+  "required": ["event_id", "event_type", "correlation_id", "service_name", "timestamp", "severity", "payload"],
+  "properties": {
+    "event_id": { "type": "string", "format": "uuid" },
+    "event_type": { "const": "OrderPlaced" },
+    "correlation_id": { "type": "string" },
+    "service_name": { "const": "order-service" },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "severity": { "const": "LOW" },
+    "payload": {
+      "type": "object",
+      "required": ["order_id", "customer_id", "items", "total_amount"],
+      "properties": {
+        "order_id": { "type": "string", "description": "Unique order identifier" },
+        "customer_id": { "type": "string", "description": "Customer identifier" },
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["product_id", "quantity", "price"],
+            "properties": {
+              "product_id": { "type": "string" },
+              "product_name": { "type": "string" },
+              "quantity": { "type": "integer", "minimum": 1 },
+              "price": { "type": "number", "minimum": 0 }
+            }
+          }
+        },
+        "total_amount": { "type": "number", "minimum": 0 },
+        "currency": { "type": "string", "default": "USD" },
+        "shipping_address": {
+          "type": "object",
+          "properties": {
+            "street": { "type": "string" },
+            "city": { "type": "string" },
+            "state": { "type": "string" },
+            "zip": { "type": "string" },
+            "country": { "type": "string" }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,6 @@
+spring:
+  kafka:
+    properties:
+      security.protocol: PLAINTEXT
+    producer:
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer

@@ -1,0 +1,55 @@
+server:
+  port: 8093
+
+spring:
+  application:
+    name: incident-analyzer
+
+  datasource:
+    url: jdbc:postgresql://${NEON_HOST:localhost}/incident_analytics?sslmode=require
+    username: ${NEON_USER:neondb_owner}
+    password: ${NEON_PASSWORD:eventflow_secret}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      username: ${REDIS_USERNAME:default}
+      password: ${REDIS_PASSWORD:}
+      ssl:
+        enabled: false
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+
+  flyway:
+    enabled: true
+    validate-on-migrate: false
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    out-of-order: true
+
+gemini:
+  api-key: ${GEMINI_API_KEY:}
+  model: gemini-2.0-flash
+  base-url: https://generativelanguage.googleapis.com
+
+chromadb:
+  base-url: http://localhost:8000
+  collection-name: incident_embeddings
+
+logging:
+  level:
+    com.eventflow: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%X{correlationId}] [%thread] %-5level %logger{36} - %msg%n"
