@@ -45,6 +45,7 @@ public class NotificationController {
                         "eventType", n.getEventType(),
                         "recipient", n.getRecipient(),
                         "subject", n.getSubject(),
+                        "body", n.getBody() != null ? n.getBody() : "",
                         "status", n.getStatus(),
                         "sentAt", n.getSentAt() != null ? n.getSentAt().toString() : null
                 )).toList()

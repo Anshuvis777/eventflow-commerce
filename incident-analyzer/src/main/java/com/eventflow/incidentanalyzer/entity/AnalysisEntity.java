@@ -30,14 +30,17 @@ public class AnalysisEntity extends BaseEntity {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String impact;
 
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON)
     @Column(name = "contributing_factors", columnDefinition = "jsonb")
     @Builder.Default
     private List<String> contributingFactors = List.of();
 
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON)
     @Column(name = "recommended_actions", columnDefinition = "jsonb")
     @Builder.Default
     private List<String> recommendedActions = List.of();
 
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON)
     @Column(name = "prevention_measures", columnDefinition = "jsonb")
     @Builder.Default
     private List<String> preventionMeasures = List.of();

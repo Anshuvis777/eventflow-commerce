@@ -11,7 +11,7 @@ const api = axios.create({ baseURL: '/api/v1', headers: { 'Content-Type': 'appli
 export const orderApi = {
   list: async () => (await api.get<ApiResponse<Order[]>>('/orders')).data.data,
   get: async (id: string) => (await api.get<ApiResponse<Order>>(`/orders/${id}`)).data.data,
-  create: async (data: { customerId: string; shippingAddress: string; items: { productId: string; productName: string; quantity: number; unitPrice: number }[] }) =>
+  create: async (data: { customerId: string; customerName?: string; customerEmail?: string; shippingAddress: string; items: { productId: string; productName: string; quantity: number; unitPrice: number }[] }) =>
     (await api.post<ApiResponse<Order>>('/orders', data)).data.data,
   updateStatus: async (id: string, status: string) =>
     (await api.patch<ApiResponse<Order>>(`/orders/${id}/status?status=${status}`)).data.data,
@@ -19,6 +19,7 @@ export const orderApi = {
 
 // ─── Payments ─────────────────────────────────────────
 export const paymentApi = {
+  list: async () => (await api.get<ApiResponse<Payment[]>>('/payments')).data.data,
   get: async (id: string) => (await api.get<ApiResponse<Payment>>(`/payments/${id}`)).data.data,
   getByOrder: async (orderId: string) => (await api.get<ApiResponse<Payment[]>>(`/payments/order/${orderId}`)).data.data,
   process: async (data: { orderId: string; amount: number; currency: string; paymentMethod: string }) =>
@@ -29,6 +30,8 @@ export const paymentApi = {
 export const inventoryApi = {
   list: async () => (await api.get<ApiResponse<InventoryProduct[]>>('/inventory')).data.data,
   get: async (id: string) => (await api.get<ApiResponse<InventoryProduct>>(`/inventory/${id}`)).data.data,
+  add: async (data: { productId?: string; productName: string; quantity: number; warehouseLocation?: string }) =>
+    (await api.post<ApiResponse<InventoryProduct>>('/inventory', data)).data.data,
   reserve: async (data: { orderId: string; items: { productId: string; quantity: number }[] }) =>
     (await api.post<ApiResponse<string>>('/inventory/reserve', data)).data.data,
   release: async (orderId: string) =>

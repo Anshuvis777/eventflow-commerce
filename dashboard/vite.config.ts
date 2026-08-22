@@ -10,6 +10,7 @@ export default defineConfig({
       '/api/v1/payments': { target: 'http://localhost:8082', changeOrigin: true },
       '/api/v1/inventory': { target: 'http://localhost:8083', changeOrigin: true },
       '/api/v1/shipments': { target: 'http://localhost:8084', changeOrigin: true },
+      '^/api/v1/incidents/[^/]+/(analysis|timeline)': { target: 'http://localhost:8093', changeOrigin: true },
       '/api/v1/incidents': { target: 'http://localhost:8091', changeOrigin: true },
       '/api/v1/logs': { target: 'http://localhost:8091', changeOrigin: true },
       '/api/v1/health': { target: 'http://localhost:8091', changeOrigin: true },

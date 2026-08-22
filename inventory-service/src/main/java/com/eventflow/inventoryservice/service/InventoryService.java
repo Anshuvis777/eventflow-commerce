@@ -108,6 +108,29 @@ public class InventoryService {
         log.info("Stock released for product: {} — event published", productId);
     }
 
+    public InventoryEntity addProduct(String productId, String productName, Integer quantity, String warehouseLocation) {
+        log.info("Adding/replenishing stock for product: {}, qty: {}", productId, quantity);
+        return inventoryRepository.findByProductId(productId)
+                .map(existing -> {
+                    existing.setQuantity(existing.getQuantity() + quantity);
+                    if (warehouseLocation != null && !warehouseLocation.isBlank()) {
+                        existing.setWarehouseLocation(warehouseLocation);
+                    }
+                    return inventoryRepository.save(existing);
+                })
+                .orElseGet(() -> {
+                    String pId = (productId != null && !productId.isBlank()) ? productId : "PROD-" + (System.currentTimeMillis() % 10000);
+                    InventoryEntity newProd = InventoryEntity.builder()
+                            .productId(pId)
+                            .productName(productName)
+                            .quantity(quantity != null ? quantity : 0)
+                            .reserved(0)
+                            .warehouseLocation((warehouseLocation != null && !warehouseLocation.isBlank()) ? warehouseLocation : "Warehouse-A")
+                            .build();
+                    return inventoryRepository.save(newProd);
+                });
+    }
+
     public List<InventoryEntity> getAllInventory() {
         return inventoryRepository.findAll();
     }

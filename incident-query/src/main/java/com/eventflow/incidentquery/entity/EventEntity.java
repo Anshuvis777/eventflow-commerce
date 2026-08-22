@@ -38,6 +38,7 @@ public class EventEntity extends BaseEntity {
     @Column(name = "severity", nullable = false)
     private String severity;
 
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON)
     @Column(name = "payload", columnDefinition = "jsonb", nullable = false)
     private String payload;
 

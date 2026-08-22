@@ -48,6 +48,7 @@ export interface InventoryProduct {
   quantity: number;
   reserved: number;
   warehouseLocation: string;
+  price?: number;
 }
 
 export interface Shipment {
@@ -80,6 +81,7 @@ export interface Notification {
   eventType: string;
   recipient: string;
   subject: string;
+  body?: string;
   status: string;
   sentAt: string;
 }

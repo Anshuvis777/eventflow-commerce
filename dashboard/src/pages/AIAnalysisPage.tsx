@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { incidentApi, analysisApi, similarApi } from '../services/api';
 import type { Incident, AnalysisResponse, SimilarIncident } from '../types';
 
@@ -11,21 +11,47 @@ export default function AIAnalysisPage() {
   const [processing, setProcessing] = useState(false);
   const [pollCount, setPollCount] = useState(0);
 
+  const { data: pastIncidents = [], isLoading: isLoadingIncidents, refetch: refetchIncidents } = useQuery({
+    queryKey: ['incidents-list'],
+    queryFn: () => incidentApi.list(),
+  });
+
   const analyzeMut = useMutation({
     mutationFn: async (cid: string) => {
+      const cleanCid = cid.trim();
       const incidents = await incidentApi.list();
-      const inc = incidents.find((i: any) => i.correlationId === cid);
+      const inc = incidents.find((i: any) =>
+        i.correlationId?.trim() === cleanCid ||
+        i.id === cleanCid ||
+        i.correlationId?.toLowerCase() === cleanCid.toLowerCase()
+      );
       if (!inc) throw new Error('No incident found');
-      return { incident: inc, analysis: await analysisApi.trigger(inc.id, true) };
+
+      // Fetch existing analysis first, or trigger if missing
+      let existingAnalysis = await analysisApi.get(inc.id).catch(() => null);
+      if (!existingAnalysis) {
+        existingAnalysis = await analysisApi.trigger(inc.id, true).catch(() => null);
+      }
+      return { incident: inc, analysis: existingAnalysis };
     },
     onSuccess: (data) => {
       setIncident(data.incident);
       setAnalysis(data.analysis);
-      setProcessing(true);
-      setPollCount(0);
+      if (!data.analysis) {
+        setProcessing(true);
+        setPollCount(0);
+      } else {
+        setProcessing(false);
+        similarApi.get(data.incident.id).then(setSimilar).catch(() => setSimilar([]));
+      }
     },
     onError: () => { setProcessing(false); },
   });
+
+  const handleSelectIncident = (inc: Incident) => {
+    setCorrelationId(inc.correlationId);
+    analyzeMut.mutate(inc.correlationId);
+  };
 
   // Poll for results after triggering analysis
   useEffect(() => {
@@ -38,6 +64,7 @@ export default function AIAnalysisPage() {
           setProcessing(false);
           const sim = await similarApi.get(incident.id).catch(() => []);
           setSimilar(sim);
+          refetchIncidents();
         } else {
           setPollCount(p => p + 1);
         }
@@ -46,22 +73,67 @@ export default function AIAnalysisPage() {
       }
     }, 3000);
     return () => clearTimeout(timer);
-  }, [processing, incident, pollCount]);
+  }, [processing, incident, pollCount, refetchIncidents]);
 
   return (
     <div>
-      <div className="page-header"><h1>🤖 AI Analysis</h1><p>AI-powered root cause analysis using Gemini</p></div>
+      <div className="page-header"><h1>🤖 AI Analysis & Incident History</h1><p>View past incidents and run AI-powered root cause analysis using Gemini</p></div>
 
       <div className="card">
         <div className="card-title">🧠 Analyze Incident</div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <input placeholder="Enter Correlation ID" value={correlationId} onChange={(e) => setCorrelationId(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && correlationId && analyzeMut.mutate(correlationId)} style={{ flex: 1, padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 8, fontSize: 14 }} />
+          <input placeholder="Enter Correlation ID or Incident ID" value={correlationId} onChange={(e) => setCorrelationId(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && correlationId && analyzeMut.mutate(correlationId)} style={{ flex: 1, padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 8, fontSize: 14 }} />
           <button className="btn btn-primary" onClick={() => correlationId && analyzeMut.mutate(correlationId)} disabled={analyzeMut.isPending || !correlationId}>
             {analyzeMut.isPending ? 'Analyzing...' : '🤖 Analyze with AI'}
           </button>
         </div>
         {processing && <div className="mt-2 text-sm text-muted">⏳ Processing analysis... ({pollCount * 3}s elapsed)</div>}
         {analyzeMut.isError && <div className="mt-2 text-sm" style={{ color: 'var(--red)' }}>No incident found for this correlation ID</div>}
+      </div>
+
+      <div className="card">
+        <div className="card-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span>📋 Past Detected Incidents ({pastIncidents.length})</span>
+          <button className="btn btn-secondary text-sm" onClick={() => refetchIncidents()}>🔄 Refresh List</button>
+        </div>
+        {isLoadingIncidents ? (
+          <div className="text-sm text-muted">Loading past incidents...</div>
+        ) : pastIncidents.length === 0 ? (
+          <div className="text-sm text-muted">No past incidents recorded yet. New incidents will automatically appear here when system anomalies or errors occur.</div>
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Title</th>
+                  <th>Correlation ID</th>
+                  <th>Severity</th>
+                  <th>Status</th>
+                  <th>Affected Services</th>
+                  <th>First Event</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pastIncidents.map((inc) => (
+                  <tr key={inc.id} style={{ cursor: 'pointer' }}>
+                    <td className="font-medium">{inc.title}</td>
+                    <td className="text-sm font-mono">{inc.correlationId}</td>
+                    <td><span className={`badge b-${inc.severity}`}>{inc.severity}</span></td>
+                    <td><span className={`badge b-${inc.status}`}>{inc.status}</span></td>
+                    <td className="text-sm">{Array.isArray(inc.affectedServices) ? inc.affectedServices.join(', ') : inc.affectedServices}</td>
+                    <td className="text-sm text-muted">{inc.createdAt ? new Date(inc.createdAt).toLocaleString() : '—'}</td>
+                    <td>
+                      <button className="btn btn-secondary text-sm" onClick={() => handleSelectIncident(inc)}>
+                        🤖 Analyze AI
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {incident && (

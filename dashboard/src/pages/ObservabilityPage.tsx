@@ -1,26 +1,41 @@
 import { useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
-import { timelineApi, logApi } from '../services/api';
-import type { TimelineResponse, LogEntry } from '../types';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { timelineApi, logApi, incidentApi } from '../services/api';
+import type { TimelineResponse, LogEntry, Incident } from '../types';
 
 export default function ObservabilityPage() {
   const [correlationId, setCorrelationId] = useState('');
   const [timeline, setTimeline] = useState<TimelineResponse | null>(null);
   const [logs, setLogs] = useState<LogEntry[]>([]);
 
+  const { data: pastIncidents = [], isLoading: isLoadingIncidents, refetch: refetchIncidents } = useQuery({
+    queryKey: ['incidents-list-obs'],
+    queryFn: () => incidentApi.list(),
+  });
+
   const timelineMut = useMutation({
     mutationFn: async (cid: string) => {
-      const incidents = await import('../services/api').then(m => m.incidentApi.list());
-      const incident = incidents.find((i: any) => i.correlationId === cid);
+      const cleanCid = cid.trim();
+      const incidents = await incidentApi.list();
+      const incident = incidents.find((i: any) =>
+        i.correlationId?.trim() === cleanCid ||
+        i.id === cleanCid ||
+        i.correlationId?.toLowerCase() === cleanCid.toLowerCase()
+      );
       if (!incident) throw new Error('No incident found for this correlation ID');
-      return timelineApi.get(incident.id);
+      return { incident, timelineData: await timelineApi.get(incident.id) };
     },
-    onSuccess: async (data) => {
-      setTimeline(data);
-      const logData = await logApi.query({ correlationId }).catch(() => []);
+    onSuccess: async (res) => {
+      setTimeline(res.timelineData);
+      const logData = await logApi.query({ correlationId: res.incident.correlationId }).catch(() => []);
       setLogs(logData || []);
     },
   });
+
+  const handleSelectIncident = (inc: Incident) => {
+    setCorrelationId(inc.correlationId);
+    timelineMut.mutate(inc.correlationId);
+  };
 
   return (
     <div>
@@ -29,12 +44,55 @@ export default function ObservabilityPage() {
       <div className="card">
         <div className="card-title">🔍 Load Timeline</div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <input placeholder="Enter Correlation ID" value={correlationId} onChange={(e) => setCorrelationId(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && correlationId && timelineMut.mutate(correlationId)} style={{ flex: 1, padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 8, fontSize: 14 }} />
+          <input placeholder="Enter Correlation ID or Incident ID" value={correlationId} onChange={(e) => setCorrelationId(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && correlationId && timelineMut.mutate(correlationId)} style={{ flex: 1, padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 8, fontSize: 14 }} />
           <button className="btn btn-primary" onClick={() => correlationId && timelineMut.mutate(correlationId)} disabled={timelineMut.isPending || !correlationId}>
             {timelineMut.isPending ? 'Loading...' : '📈 Load Timeline'}
           </button>
         </div>
         {timelineMut.isError && <div className="mt-2 text-sm" style={{ color: 'var(--red)' }}>No data found for this correlation ID</div>}
+      </div>
+
+      <div className="card">
+        <div className="card-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span>📋 Recorded System Incidents ({pastIncidents.length})</span>
+          <button className="btn btn-secondary text-sm" onClick={() => refetchIncidents()}>🔄 Refresh</button>
+        </div>
+        {isLoadingIncidents ? (
+          <div className="text-sm text-muted">Loading past incidents...</div>
+        ) : pastIncidents.length === 0 ? (
+          <div className="text-sm text-muted">No recorded incidents found yet.</div>
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Title</th>
+                  <th>Correlation ID</th>
+                  <th>Severity</th>
+                  <th>Status</th>
+                  <th>Services</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pastIncidents.map((inc) => (
+                  <tr key={inc.id}>
+                    <td className="font-medium">{inc.title}</td>
+                    <td className="text-sm font-mono">{inc.correlationId}</td>
+                    <td><span className={`badge b-${inc.severity}`}>{inc.severity}</span></td>
+                    <td><span className={`badge b-${inc.status}`}>{inc.status}</span></td>
+                    <td className="text-sm">{Array.isArray(inc.affectedServices) ? inc.affectedServices.join(', ') : inc.affectedServices}</td>
+                    <td>
+                      <button className="btn btn-secondary text-sm" onClick={() => handleSelectIncident(inc)}>
+                        📈 View Timeline
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {timeline && (

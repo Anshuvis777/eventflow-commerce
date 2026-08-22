@@ -50,23 +50,36 @@ public class BusinessEventConsumer {
                         .correlationId(baseEvent.getCorrelationId())
                         .serviceName(baseEvent.getServiceName())
                         .timestamp(baseEvent.getTimestamp())
-                        .severity(baseEvent.getSeverity())
+                        .severity(baseEvent.getSeverity() != null ? baseEvent.getSeverity() : "INFO")
                         .payload(payloadJson)
                         .build();
-            } else if (rawValue instanceof Map) {
-                Map<String, Object> event = (Map<String, Object>) rawValue;
-                request = EventIngestRequest.builder()
-                        .eventId((String) event.get("event_id"))
-                        .eventType((String) event.get("event_type"))
-                        .correlationId((String) event.get("correlation_id"))
-                        .serviceName((String) event.get("service_name"))
-                        .timestamp(OffsetDateTime.parse((String) event.get("timestamp")))
-                        .severity((String) event.get("severity"))
-                        .payload(event.get("payload") != null ? event.get("payload").toString() : "{}")
-                        .build();
             } else {
-                log.error("Unknown event payload class: {}", rawValue.getClass().getName());
-                return;
+                com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                mapper.registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
+                com.fasterxml.jackson.databind.JsonNode node = mapper.valueToTree(rawValue);
+
+                String eventId = node.hasNonNull("eventId") ? node.get("eventId").asText() : (node.hasNonNull("event_id") ? node.get("event_id").asText() : UUID.randomUUID().toString());
+                String eventType = node.hasNonNull("eventType") ? node.get("eventType").asText() : (node.hasNonNull("event_type") ? node.get("event_type").asText() : "UnknownEvent");
+                String correlationId = node.hasNonNull("correlationId") ? node.get("correlationId").asText() : (node.hasNonNull("correlation_id") ? node.get("correlation_id").asText() : (node.hasNonNull("orderId") ? node.get("orderId").asText() : UUID.randomUUID().toString()));
+                String serviceName = node.hasNonNull("serviceName") ? node.get("serviceName").asText() : (node.hasNonNull("service_name") ? node.get("service_name").asText() : "eventflow-service");
+                String severityStr = node.hasNonNull("severity") ? node.get("severity").asText() : "INFO";
+                
+                OffsetDateTime ts = OffsetDateTime.now();
+                if (node.hasNonNull("timestamp")) {
+                    try {
+                        ts = OffsetDateTime.parse(node.get("timestamp").asText());
+                    } catch (Exception ignored) {}
+                }
+
+                request = EventIngestRequest.builder()
+                        .eventId(eventId)
+                        .eventType(eventType)
+                        .correlationId(correlationId)
+                        .serviceName(serviceName)
+                        .timestamp(ts)
+                        .severity(severityStr)
+                        .payload(node.toString())
+                        .build();
             }
 
             IncidentEntity incident = incidentDetectionService.processEvent(request);
@@ -74,7 +87,7 @@ public class BusinessEventConsumer {
 
         } catch (Exception e) {
             log.error("Failed to process Kafka event: {}", e.getMessage(), e);
-            throw e;
+            throw new RuntimeException("Failed to process Kafka event", e);
         }
     }
 }

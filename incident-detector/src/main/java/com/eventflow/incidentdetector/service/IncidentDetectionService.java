@@ -37,6 +37,7 @@ public class IncidentDetectionService {
             log.debug("Attaching event to existing incident: {}", incident.getId());
         } else {
             incident = findOrCreateIncident(request.correlationId(), request.severity(), request);
+            incident = incidentRepository.save(incident);
             log.debug("Created new incident: {}", incident.getId());
         }
 
@@ -44,13 +45,14 @@ public class IncidentDetectionService {
         eventRepository.save(event);
 
         updateIncidentMetadata(incident, request);
+        incident = incidentRepository.save(incident);
 
         return incident;
     }
 
     private IncidentEntity findOrCreateIncident(String correlationId, String severity,
                                                  EventIngestRequest request) {
-        Severity incidentSeverity = Severity.valueOf(severity);
+        Severity incidentSeverity = parseSeverity(severity);
 
         return IncidentEntity.builder()
                 .correlationId(correlationId)
@@ -73,8 +75,20 @@ public class IncidentDetectionService {
                 .serviceName(request.serviceName())
                 .timestamp(request.timestamp())
                 .payload(request.payload())
-                .severity(Severity.valueOf(request.severity()))
+                .severity(parseSeverity(request.severity()))
                 .build();
+    }
+
+    private Severity parseSeverity(String severityStr) {
+        if (severityStr == null) return Severity.MEDIUM;
+        String upper = severityStr.toUpperCase();
+        return switch (upper) {
+            case "LOW", "INFO" -> Severity.LOW;
+            case "MEDIUM", "WARN" -> Severity.MEDIUM;
+            case "HIGH", "ERROR" -> Severity.HIGH;
+            case "CRITICAL", "FATAL" -> Severity.CRITICAL;
+            default -> Severity.MEDIUM;
+        };
     }
 
     private void updateIncidentMetadata(IncidentEntity incident, EventIngestRequest request) {

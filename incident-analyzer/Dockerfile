@@ -4,7 +4,7 @@ WORKDIR /app
 COPY pom.xml .
 COPY eventflow-common/pom.xml eventflow-common/
 COPY incident-analyzer/pom.xml incident-analyzer/
-RUN mvn dependency:go-offline -pl incident-analyzer -am
+RUN mvn dependency:go-offline -pl incident-analyzer -am || true
 COPY . .
 RUN mvn clean package -DskipTests -pl incident-analyzer -am
 

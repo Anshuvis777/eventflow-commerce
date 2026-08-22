@@ -38,6 +38,7 @@ public class IncidentEntity extends BaseEntity {
     @Column(columnDefinition = "TEXT")
     private String description;
 
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON)
     @Column(name = "affected_services", columnDefinition = "jsonb")
     @Builder.Default
     private List<String> affectedServices = List.of();

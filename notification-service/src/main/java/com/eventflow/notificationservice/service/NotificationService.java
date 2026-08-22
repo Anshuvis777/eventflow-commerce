@@ -47,43 +47,32 @@ public class NotificationService {
             saveOrUpdateRecipient(orderEvent);
         }
 
-        // Look up recipient email
+        // Look up recipient email or fall back to system admin
+        String recipientEmail = "system-alerts@eventflow-commerce.com";
+        String customerName = "System Operations Admin";
+        
         Optional<NotificationRecipientEntity> recipientOpt = notificationRecipientRepository.findByOrderId(orderId);
-        if (recipientOpt.isEmpty()) {
-            log.warn("No recipient found for orderId: {} — skipping notification", orderId);
-            return;
+        if (recipientOpt.isPresent()) {
+            recipientEmail = recipientOpt.get().getCustomerEmail();
+            customerName = recipientOpt.get().getCustomerName();
+        } else {
+            log.info("No customer recipient found for orderId: {} — using fallback admin recipient {}", orderId, recipientEmail);
         }
-
-        NotificationRecipientEntity recipient = recipientOpt.get();
 
         // Generate email content
         String subject = buildSubject(eventType, orderId);
-        String body = buildBody(eventType, orderId, recipient.getCustomerName());
+        String body = buildBody(eventType, orderId, customerName);
 
-        // Send email with retry
+        // Send email with fallback handling
         String status = "SENT";
         int retryCount = 0;
-        int maxRetries = 3;
 
-        for (int attempt = 1; attempt <= maxRetries; attempt++) {
-            try {
-                sendEmail(recipient.getCustomerEmail(), subject, body);
-                log.info("Email sent to {} for event: {} (attempt {})", recipient.getCustomerEmail(), eventType, attempt);
-                break;
-            } catch (Exception e) {
-                retryCount = attempt;
-                log.warn("Email send attempt {}/{} failed for event {}: {}", attempt, maxRetries, event.getEventId(), e.getMessage());
-                if (attempt < maxRetries) {
-                    try {
-                        Thread.sleep((long) Math.pow(2, attempt) * 1000); // exponential backoff
-                    } catch (InterruptedException ie) {
-                        Thread.currentThread().interrupt();
-                        break;
-                    }
-                } else {
-                    status = "FAILED";
-                }
-            }
+        try {
+            sendEmail(recipientEmail, subject, body);
+            log.info("Email sent to {} for event: {}", recipientEmail, eventType);
+        } catch (Exception e) {
+            log.warn("SMTP email send failed for event {} ({}), recording as FAILED / Mock: {}", event.getEventId(), eventType, e.getMessage());
+            status = "FAILED";
         }
 
         // Save notification record
@@ -91,7 +80,7 @@ public class NotificationService {
                 .eventId(event.getEventId())
                 .correlationId(orderId)
                 .eventType(eventType)
-                .recipient(recipient.getCustomerEmail())
+                .recipient(recipientEmail)
                 .subject(subject)
                 .body(body)
                 .status(status)
@@ -162,7 +151,8 @@ public class NotificationService {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true);
-            helper.setFrom(mailFrom);
+            String from = (mailFrom != null && !mailFrom.isBlank()) ? mailFrom : "alerts@eventflow-commerce.com";
+            helper.setFrom(from);
             helper.setTo(to);
             helper.setSubject(subject);
             helper.setText(body);

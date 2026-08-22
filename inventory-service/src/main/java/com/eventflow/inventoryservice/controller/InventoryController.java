@@ -28,6 +28,17 @@ public class InventoryController {
         return ResponseEntity.ok(ApiResponse.success(inventoryService.getInventory(productId)));
     }
 
+    @PostMapping
+    public ResponseEntity<ApiResponse<InventoryEntity>> addProduct(@RequestBody Map<String, Object> request) {
+        String productId = (String) request.get("productId");
+        String productName = request.get("productName") != null ? (String) request.get("productName") : "New Product";
+        Integer quantity = request.get("quantity") != null ? ((Number) request.get("quantity")).intValue() : 10;
+        String warehouseLocation = (String) request.get("warehouseLocation");
+
+        InventoryEntity inventory = inventoryService.addProduct(productId, productName, quantity, warehouseLocation);
+        return ResponseEntity.ok(ApiResponse.success("Product added/replenished successfully", inventory));
+    }
+
     @PostMapping("/reserve")
     public ResponseEntity<ApiResponse<InventoryEntity>> reserveStock(@RequestBody Map<String, Object> request) {
         // Support both flat {productId, quantity, orderId} and nested {orderId, items: [{productId, quantity}]}

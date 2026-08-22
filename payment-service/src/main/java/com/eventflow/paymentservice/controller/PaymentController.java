@@ -39,6 +39,11 @@ public class PaymentController {
                 .body(ApiResponse.success("Payment processed", payment));
     }
 
+    @GetMapping
+    public ResponseEntity<ApiResponse<List<PaymentEntity>>> getAllPayments() {
+        return ResponseEntity.ok(ApiResponse.success(paymentService.getAllPayments()));
+    }
+
     @GetMapping("/order/{orderId}")
     public ResponseEntity<ApiResponse<List<PaymentEntity>>> getPaymentsByOrder(@PathVariable UUID orderId) {
         return ResponseEntity.ok(ApiResponse.success(paymentService.getPaymentsByOrder(orderId)));

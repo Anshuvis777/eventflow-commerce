@@ -88,6 +88,10 @@ public class PaymentService {
         return paymentRepository.findByOrderId(orderId);
     }
 
+    public List<PaymentEntity> getAllPayments() {
+        return paymentRepository.findAll();
+    }
+
     @Transactional
     public void processPaymentForOrder(OrderPlacedEvent event) {
         UUID orderId = UUID.fromString(event.getOrderId());
