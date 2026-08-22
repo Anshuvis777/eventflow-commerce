@@ -46,3 +46,7 @@ spring:
   flyway:
     enabled: true
     validate-on-migrate: false
+
+keepalive:
+  enabled: ${KEEPALIVE_ENABLED:false}
+  interval-ms: 240000

@@ -171,27 +171,70 @@ public class Gpt4AnalysisService {
     }
 
     private String generateFallbackJson(String prompt) {
+        // Context-aware heuristic fallback — parse prompt signals for dynamic response
+        String lower = prompt.toLowerCase();
+        boolean isPayment = lower.contains("paymentfailed") || lower.contains("payment_failed") || lower.contains("payment gateway");
+        boolean isInventory = lower.contains("inventoryreservationfailed") || lower.contains("insufficient stock");
+        boolean isShipment = lower.contains("shipment") || lower.contains("delivery");
+        boolean isHigh = lower.contains("severity: high") || lower.contains("severity: critical");
+        boolean isTimeout = lower.contains("timeout");
+
+        String rootCause;
+        String impact;
+        String factor1;
+        String action1;
+
+        if (isPayment) {
+            rootCause = "Payment gateway failure — transaction rejected or timed out by external provider.";
+            impact = "Order cannot proceed to fulfillment; customer payment not captured.";
+            factor1 = "Payment gateway latency / rejection (observed in event timeline)";
+            action1 = "Verify payment gateway status and retry with exponential backoff";
+        } else if (isInventory) {
+            rootCause = "Inventory shortage — insufficient stock for requested items at warehouse.";
+            impact = "Order fulfillment blocked; stock reservation failed for one or more SKUs.";
+            factor1 = "Insufficient quantity_available for requested product";
+            action1 = "Replenish stock or offer substitute product; notify customer";
+        } else if (isShipment) {
+            rootCause = "Shipment / carrier failure — tracking not created or delivery exception.";
+            impact = "Order shipped status not confirmed; customer tracking unavailable.";
+            factor1 = "Carrier API error or warehouse dispatch delay";
+            action1 = "Check carrier integration and warehouse dispatch queue";
+        } else if (isTimeout) {
+            rootCause = "Service timeout — downstream dependency did not respond within SLA.";
+            impact = "Transaction halted mid-saga; downstream steps not executed.";
+            factor1 = "Network / downstream latency exceeding timeout threshold";
+            action1 = "Investigate downstream service health and network path";
+        } else {
+            rootCause = "Cross-service failure — correlated events indicate transaction anomaly.";
+            impact = "Order lifecycle interrupted; requires manual or automated remediation.";
+            factor1 = "Correlated failure pattern across multiple services";
+            action1 = "Review event timeline and service logs for root event";
+        }
+
+        int confidence = isHigh ? 87 : 78;
+
         return """
         {
-          "root_cause": "Network gateway timeout or downstream service failure during transaction execution.",
-          "impact": "Customer transaction failed; order state halted pending retry or cancellation.",
+          "root_cause": "%s",
+          "impact": "%s",
           "contributing_factors": [
-            "Payment Gateway response latency exceeding 30s timeout threshold",
-            "Transient network jitter between microservices",
-            "High concurrency during order placement surge"
+            "%s",
+            "Severity %s indicates %s priority",
+            "Event correlation by correlationId shows saga interruption"
           ],
           "recommended_actions": [
-            "Verify external payment gateway service status",
-            "Retry failed transaction with exponential backoff",
-            "Check database connection pool limits on affected microservice"
+            "%s",
+            "Review incident timeline and affected services in dashboard",
+            "Check database and Kafka consumer lag for affected microservice"
           ],
           "prevention_measures": [
-            "Implement Resilience4j CircuitBreaker on external API calls",
-            "Configure distributed tracing with OpenTelemetry context propagation",
-            "Add alert rules for PaymentFailed event frequency spikes"
+            "Implement Resilience4j CircuitBreaker and retry on external calls",
+            "Add alert rules for event frequency spikes by topic",
+            "Propagate correlationId with OpenTelemetry tracing"
           ],
-          "confidence_score": 92
+          "confidence_score": %d
         }
-        """;
+        """.formatted(rootCause, impact, factor1, isHigh ? "HIGH/CRITICAL" : "MEDIUM/LOW",
+                isHigh ? "high" : "moderate", action1, confidence);
     }
 }

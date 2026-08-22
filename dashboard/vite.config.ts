@@ -13,6 +13,7 @@ export default defineConfig({
       '^/api/v1/incidents/[^/]+/(analysis|timeline)': { target: 'http://localhost:8093', changeOrigin: true },
       '/api/v1/incidents': { target: 'http://localhost:8091', changeOrigin: true },
       '/api/v1/logs': { target: 'http://localhost:8091', changeOrigin: true },
+      '/health': { target: 'http://localhost:8091', changeOrigin: true },
       '/api/v1/health': { target: 'http://localhost:8091', changeOrigin: true },
     },
   },

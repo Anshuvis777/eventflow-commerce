@@ -3,11 +3,11 @@ package com.eventflow.paymentservice.service;
 import com.eventflow.common.event.PaymentFailedEvent;
 import com.eventflow.common.event.PaymentProcessedEvent;
 import com.eventflow.common.event.OrderPlacedEvent;
+import com.eventflow.common.outbox.OutboxService;
 import com.eventflow.paymentservice.entity.PaymentEntity;
 import com.eventflow.paymentservice.repository.PaymentRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,7 +22,7 @@ import java.util.UUID;
 public class PaymentService {
 
     private final PaymentRepository paymentRepository;
-    private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final OutboxService outboxService;
 
     public PaymentEntity processPayment(UUID orderId, String orderNumber, UUID customerId,
                                          BigDecimal amount, String currency) {
@@ -60,8 +60,9 @@ public class PaymentService {
                     .timestamp(OffsetDateTime.now())
                     .severity("INFO")
                     .build();
-            kafkaTemplate.send("payments", orderId.toString(), event);
-            log.info("Payment COMPLETED for order: {} — event published", orderNumber);
+            outboxService.saveEvent(event.getEventId(), orderId.toString(), "Payment",
+                    event.getEventType(), "payments", event);
+            log.info("Payment COMPLETED for order: {} — event saved to outbox", orderNumber);
         } else {
             PaymentFailedEvent event = PaymentFailedEvent.builder()
                     .eventId(UUID.randomUUID().toString())
@@ -77,8 +78,9 @@ public class PaymentService {
                     .timestamp(OffsetDateTime.now())
                     .severity("WARN")
                     .build();
-            kafkaTemplate.send("payments", orderId.toString(), event);
-            log.warn("Payment FAILED for order: {} — event published", orderNumber);
+            outboxService.saveEvent(event.getEventId(), orderId.toString(), "Payment",
+                    event.getEventType(), "payments", event);
+            log.warn("Payment FAILED for order: {} — event saved to outbox", orderNumber);
         }
 
         return payment;

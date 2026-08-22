@@ -3,11 +3,11 @@ package com.eventflow.shippingservice.service;
 import com.eventflow.common.event.InventoryReservedEvent;
 import com.eventflow.common.event.ShipmentCreatedEvent;
 import com.eventflow.common.event.ShipmentDeliveredEvent;
+import com.eventflow.common.outbox.OutboxService;
 import com.eventflow.shippingservice.entity.ShipmentEntity;
 import com.eventflow.shippingservice.repository.ShipmentRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.OffsetDateTime;
@@ -20,7 +20,7 @@ import java.util.UUID;
 public class ShippingService {
 
     private final ShipmentRepository shipmentRepository;
-    private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final OutboxService outboxService;
 
     public ShipmentEntity createShipment(UUID orderId, String orderNumber, UUID customerId,
                                           String shippingAddress) {
@@ -54,8 +54,9 @@ public class ShippingService {
                 .timestamp(OffsetDateTime.now())
                 .severity("INFO")
                 .build();
-        kafkaTemplate.send("shipments", orderId.toString(), event);
-        log.info("Shipment created: {} — event published", trackingNumber);
+        outboxService.saveEvent(event.getEventId(), orderId.toString(), "Shipment",
+                event.getEventType(), "shipments", event);
+        log.info("Shipment created: {} — event saved to outbox", trackingNumber);
 
         return shipment;
     }
@@ -81,8 +82,9 @@ public class ShippingService {
                 .timestamp(OffsetDateTime.now())
                 .severity("INFO")
                 .build();
-        kafkaTemplate.send("shipments", shipment.getOrderId().toString(), event);
-        log.info("Shipment delivered: {} — event published", shipment.getTrackingNumber());
+        outboxService.saveEvent(event.getEventId(), shipment.getOrderId().toString(), "Shipment",
+                event.getEventType(), "shipments", event);
+        log.info("Shipment delivered: {} — event saved to outbox", shipment.getTrackingNumber());
     }
 
     public List<ShipmentEntity> getShipmentsByOrder(UUID orderId) {

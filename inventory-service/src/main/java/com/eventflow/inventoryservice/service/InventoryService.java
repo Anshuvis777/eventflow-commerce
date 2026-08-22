@@ -4,11 +4,11 @@ import com.eventflow.common.event.InventoryReleasedEvent;
 import com.eventflow.common.event.InventoryReservedEvent;
 import com.eventflow.common.event.InventoryReservationFailedEvent;
 import com.eventflow.common.event.PaymentProcessedEvent;
+import com.eventflow.common.outbox.OutboxService;
 import com.eventflow.inventoryservice.entity.InventoryEntity;
 import com.eventflow.inventoryservice.repository.InventoryRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.OffsetDateTime;
@@ -22,7 +22,7 @@ import java.util.UUID;
 public class InventoryService {
 
     private final InventoryRepository inventoryRepository;
-    private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final OutboxService outboxService;
 
     // ponytail: in-memory idempotency guard for reserved orders (see reserveStockForOrder)
     private final java.util.Set<String> reservedOrderIds = java.util.concurrent.ConcurrentHashMap.newKeySet();
@@ -53,7 +53,8 @@ public class InventoryService {
                     .timestamp(OffsetDateTime.now())
                     .severity("WARN")
                     .build();
-            kafkaTemplate.send("inventory", orderId.toString(), event);
+            outboxService.saveEvent(event.getEventId(), orderId.toString(), "Inventory",
+                    event.getEventType(), "inventory", event);
             throw new RuntimeException("Insufficient stock for product: " + productId);
         }
 
@@ -76,8 +77,9 @@ public class InventoryService {
                 .timestamp(OffsetDateTime.now())
                 .severity("INFO")
                 .build();
-        kafkaTemplate.send("inventory", orderId.toString(), event);
-        log.info("Stock reserved for product: {}, remaining: {} — event published", productId, available - quantity);
+        outboxService.saveEvent(event.getEventId(), orderId.toString(), "Inventory",
+                event.getEventType(), "inventory", event);
+        log.info("Stock reserved for product: {}, remaining: {} — event saved to outbox", productId, available - quantity);
         return inventory;
     }
 
@@ -104,8 +106,9 @@ public class InventoryService {
                 .timestamp(OffsetDateTime.now())
                 .severity("INFO")
                 .build();
-        kafkaTemplate.send("inventory", orderId.toString(), event);
-        log.info("Stock released for product: {} — event published", productId);
+        outboxService.saveEvent(event.getEventId(), orderId.toString(), "Inventory",
+                event.getEventType(), "inventory", event);
+        log.info("Stock released for product: {} — event saved to outbox", productId);
     }
 
     public InventoryEntity addProduct(String productId, String productName, Integer quantity, String warehouseLocation) {
@@ -183,7 +186,8 @@ public class InventoryService {
                     .timestamp(OffsetDateTime.now())
                     .severity("WARN")
                     .build();
-            kafkaTemplate.send("inventory", event.getOrderId(), failEvent);
+            outboxService.saveEvent(failEvent.getEventId(), event.getOrderId(), "Inventory",
+                    failEvent.getEventType(), "inventory", failEvent);
             return;
         }
 
@@ -206,7 +210,8 @@ public class InventoryService {
                 .timestamp(OffsetDateTime.now())
                 .severity("INFO")
                 .build();
-        kafkaTemplate.send("inventory", event.getOrderId(), reservedEvent);
+        outboxService.saveEvent(reservedEvent.getEventId(), event.getOrderId(), "Inventory",
+                reservedEvent.getEventType(), "inventory", reservedEvent);
         log.info("Stock reserved for order: {}, product: {}", event.getOrderId(), inventory.getProductId());
     }
 }

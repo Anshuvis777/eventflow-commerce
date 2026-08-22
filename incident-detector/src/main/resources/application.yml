@@ -56,6 +56,10 @@ spring:
     baseline-on-migrate: true
     out-of-order: true
 
+keepalive:
+  enabled: ${KEEPALIVE_ENABLED:false}
+  interval-ms: 240000
+
 logging:
   level:
     com.eventflow: DEBUG

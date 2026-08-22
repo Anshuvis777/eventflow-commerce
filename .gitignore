@@ -4,6 +4,8 @@ build/
 dist/
 node_modules/
 
+.ua/
+
 # IDE
 .idea/
 *.iml

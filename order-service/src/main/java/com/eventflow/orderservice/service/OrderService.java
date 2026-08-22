@@ -1,6 +1,7 @@
 package com.eventflow.orderservice.service;
 
 import com.eventflow.common.event.OrderPlacedEvent;
+import com.eventflow.common.outbox.OutboxService;
 import com.eventflow.orderservice.dto.OrderRequest;
 import com.eventflow.orderservice.dto.OrderResponse;
 import com.eventflow.orderservice.entity.OrderEntity;
@@ -8,7 +9,6 @@ import com.eventflow.orderservice.mapper.OrderMapper;
 import com.eventflow.orderservice.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,7 +23,7 @@ public class OrderService {
 
     private final OrderRepository orderRepository;
     private final OrderMapper orderMapper;
-    private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final OutboxService outboxService;
 
     @Transactional
     public OrderResponse createOrder(OrderRequest request) {
@@ -68,8 +68,9 @@ public class OrderService {
                 .severity("INFO")
                 .build();
 
-        kafkaTemplate.send("orders", order.getId().toString(), event);
-        log.info("Order placed: {} — event published to Kafka", orderNumber);
+        outboxService.saveEvent(event.getEventId(), order.getId().toString(), "Order",
+                event.getEventType(), "orders", event);
+        log.info("Order placed: {} — event saved to outbox (transactional)", orderNumber);
 
         return orderMapper.toResponse(order);
     }
