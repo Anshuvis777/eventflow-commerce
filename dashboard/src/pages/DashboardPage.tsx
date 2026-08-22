@@ -21,7 +21,7 @@ export default function DashboardPage() {
       services.map(async (svc) => {
         try {
           const res = await fetch(svc.url, { signal: AbortSignal.timeout(3000) });
-          return { ...svc, status: res.ok || res.status < 500 ? 'UP' as const : 'DOWN' as const };
+          return { ...svc, status: res.ok ? 'UP' as const : 'DOWN' as const };
         } catch {
           return { ...svc, status: 'DOWN' as const };
         }
