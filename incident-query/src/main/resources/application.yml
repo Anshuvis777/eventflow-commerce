@@ -39,6 +39,11 @@ spring:
     baseline-on-migrate: true
     out-of-order: true
 
+gemini:
+  api-key: ${GEMINI_API_KEY:}
+  embedding-model: text-embedding-004
+  base-url: https://generativelanguage.googleapis.com
+
 chromadb:
   base-url: http://localhost:8000
   collection-name: incident_embeddings

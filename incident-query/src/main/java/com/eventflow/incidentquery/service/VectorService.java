@@ -6,8 +6,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
+import org.springframework.http.MediaType;
+
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -24,6 +24,15 @@ public class VectorService {
 
     @Value("${chromadb.collection-name:incident_embeddings}")
     private String collectionName;
+
+    @Value("${gemini.api-key:}")
+    private String geminiApiKey;
+
+    @Value("${gemini.embedding-model:text-embedding-004}")
+    private String embeddingModel;
+
+    @Value("${gemini.base-url:https://generativelanguage.googleapis.com}")
+    private String geminiBaseUrl;
 
     public void storeEmbedding(UUID incidentId, double[] vector, Map<String, String> metadata) {
         log.info("Storing embedding for incident: {}", incidentId);
@@ -72,15 +81,46 @@ public class VectorService {
     }
 
     /**
-     * Generate a deterministic embedding from incident text without requiring an external model.
-     * Uses TF-hash style hashing into a fixed dimension. For production, replace with a call to
-     * an embedding provider (OpenAI / Gemini / sentence-transformers).
-     *
-     * @param text incident text (title + rootCause + event types)
-     * @param dimensions embedding size (e.g. 384 or 768)
+     * Generate embedding via Gemini text-embedding-004 when GEMINI_API_KEY is set,
+     * otherwise falls back to deterministic TF-hash (keeps dev/offline working).
      */
     public double[] embedText(String text, int dimensions) {
         if (text == null || text.isBlank()) text = "empty incident";
+        if (geminiApiKey != null && !geminiApiKey.isBlank()) {
+            try {
+                return embedWithGemini(text, dimensions);
+            } catch (Exception e) {
+                log.warn("Gemini embedding failed ({}), using hash fallback", e.getMessage());
+            }
+        }
+        return hashEmbed(text, dimensions);
+    }
+
+    private double[] embedWithGemini(String text, int requestedDimensions) {
+        String url = geminiBaseUrl + "/v1beta/models/" + embeddingModel + ":embedContent?key=" + geminiApiKey;
+        Map<String, Object> body = Map.of("content", Map.of("parts", List.of(Map.of("text", text))));
+        @SuppressWarnings("unchecked")
+        Map<String, Object> response = webClientBuilder.build()
+                .post().uri(url).contentType(MediaType.APPLICATION_JSON).bodyValue(body)
+                .retrieve().bodyToMono(Map.class).block();
+        @SuppressWarnings("unchecked")
+        Map<String, Object> embedding = (Map<String, Object>) response.get("embedding");
+        @SuppressWarnings("unchecked")
+        List<Number> values = (List<Number>) embedding.get("values");
+        double[] vec = new double[values.size()];
+        for (int i = 0; i < values.size(); i++) vec[i] = values.get(i).doubleValue();
+        // adapt to requested dimensions (Gemini 004 = 768)
+        if (vec.length == requestedDimensions) return vec;
+        double[] out = new double[requestedDimensions];
+        System.arraycopy(vec, 0, out, 0, Math.min(vec.length, requestedDimensions));
+        // L2 normalize adapted vector
+        double norm = 0; for (double v : out) norm += v * v;
+        norm = Math.sqrt(norm);
+        if (norm > 0) for (int i = 0; i < out.length; i++) out[i] /= norm;
+        return out;
+    }
+
+    private double[] hashEmbed(String text, int dimensions) {
         double[] vec = new double[dimensions];
         String[] tokens = text.toLowerCase().split("[^a-z0-9]+");
         for (String token : tokens) {
@@ -88,17 +128,12 @@ public class VectorService {
             int hash = Math.abs(token.hashCode());
             int idx = hash % dimensions;
             vec[idx] += 1.0;
-            // bigram spread for slightly richer signal
             int idx2 = (hash * 31) % dimensions;
             vec[Math.abs(idx2) % dimensions] += 0.3;
         }
-        // L2 normalize
-        double norm = 0;
-        for (double v : vec) norm += v * v;
+        double norm = 0; for (double v : vec) norm += v * v;
         norm = Math.sqrt(norm);
-        if (norm > 0) {
-            for (int i = 0; i < vec.length; i++) vec[i] /= norm;
-        }
+        if (norm > 0) for (int i = 0; i < vec.length; i++) vec[i] /= norm;
         return vec;
     }
 

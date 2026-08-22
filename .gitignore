@@ -35,3 +35,6 @@ mvnw.cmd
 test-output/
 surefire-reports/
 failsafe-reports/
+
+.agents/
+skills-lock.json
