@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: jdbc:postgresql://${NEON_HOST:postgres}:5432/incident_analytics?sslmode=require
+    url: jdbc:postgresql://${NEON_HOST:postgres}:5432/incident_analytics?sslmode=require&ssl=true
     username: ${NEON_USER:neondb_owner}
     password: ${NEON_PASSWORD:eventflow_secret}
   kafka:
