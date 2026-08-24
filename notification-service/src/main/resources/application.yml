@@ -17,7 +17,7 @@ spring:
       connection-timeout: 30000
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: update
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
@@ -49,6 +49,12 @@ spring:
   flyway:
     enabled: true
     validate-on-migrate: false
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    out-of-order: true
+    url: ${spring.datasource.url}
+    user: ${spring.datasource.username}
+    password: ${spring.datasource.password}
 
 keepalive:
   enabled: ${KEEPALIVE_ENABLED:false}

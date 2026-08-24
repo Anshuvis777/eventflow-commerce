@@ -58,6 +58,9 @@ spring:
     locations: classpath:db/migration
     baseline-on-migrate: true
     out-of-order: true
+    url: ${spring.datasource.url}
+    user: ${spring.datasource.username}
+    password: ${spring.datasource.password}
 
 keepalive:
   enabled: ${KEEPALIVE_ENABLED:false}
