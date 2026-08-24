@@ -1,6 +1,22 @@
 FROM maven:3.9-eclipse-temurin-21 AS build
 WORKDIR /app
+
+ENV MAVEN_OPTS="-Dmaven.wagon.http.retryHandler.count=5 -Dhttp.keepAlive=false"
+
+# Cache Maven dependencies layer
 COPY pom.xml .
+COPY eventflow-common/pom.xml eventflow-common/
+COPY order-service/pom.xml order-service/
+COPY payment-service/pom.xml payment-service/
+COPY inventory-service/pom.xml inventory-service/
+COPY shipping-service/pom.xml shipping-service/
+COPY notification-service/pom.xml notification-service/
+COPY incident-detector/pom.xml incident-detector/
+COPY incident-analyzer/pom.xml incident-analyzer/
+COPY incident-query/pom.xml incident-query/
+RUN mvn dependency:go-offline -B || true
+
+# Copy full source code and package
 COPY eventflow-common/ eventflow-common/
 COPY order-service/ order-service/
 COPY payment-service/ payment-service/
@@ -10,7 +26,7 @@ COPY notification-service/ notification-service/
 COPY incident-detector/ incident-detector/
 COPY incident-analyzer/ incident-analyzer/
 COPY incident-query/ incident-query/
-RUN mvn clean package -DskipTests
+RUN mvn clean package -DskipTests -B
 
 FROM eclipse-temurin:21-jre-alpine
 COPY docker/certs/aiven-ca.pem /tmp/aiven-ca.pem
