@@ -6,7 +6,7 @@ spring:
     name: order-service
 
   datasource:
-    url: jdbc:postgresql://${NEON_HOST:localhost}:5432/eventflow?sslmode=require&ssl=true
+    url: jdbc:postgresql://${NEON_HOST:localhost}:5432/eventflow?sslmode=require&sslfactory=org.postgresql.ssl.NonValidatingFactory
     username: ${NEON_USER:neondb_owner}
     password: ${NEON_PASSWORD:eventflow_secret}
     driver-class-name: org.postgresql.Driver
