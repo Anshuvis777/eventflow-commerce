@@ -9,7 +9,7 @@ RUN mvn clean package -DskipTests -pl inventory-service -am
 
 FROM eclipse-temurin:21-jre-alpine
 COPY docker/certs/aiven-ca.pem /tmp/aiven-ca.pem
-RUN keytool -importcert -noprompt -trustcacerts -alias aiven-ca -file /tmp/aiven-ca.pem -keystore /opt/java/openjdk/lib/security/cacerts -storepass changeit && rm /tmp/aiven-ca.pem
+RUN keytool -importcert -noprompt -trustcacerts -alias aiven-ca -file /tmp/aiven-ca.pem -keystore /opt/java/openjdk/lib/security/cacerts -storepass changeit && chmod 644 /opt/java/openjdk/lib/security/cacerts && rm /tmp/aiven-ca.pem
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 WORKDIR /app
 COPY --from=build /app/inventory-service/target/*.jar app.jar

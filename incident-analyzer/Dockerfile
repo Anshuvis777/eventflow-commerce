@@ -11,7 +11,7 @@ RUN mvn clean package -DskipTests -pl incident-analyzer -am
 # Runtime stage
 FROM eclipse-temurin:21-jre-alpine
 COPY docker/certs/aiven-ca.pem /tmp/aiven-ca.pem
-RUN keytool -importcert -noprompt -trustcacerts -alias aiven-ca -file /tmp/aiven-ca.pem -keystore /opt/java/openjdk/lib/security/cacerts -storepass changeit && rm /tmp/aiven-ca.pem
+RUN keytool -importcert -noprompt -trustcacerts -alias aiven-ca -file /tmp/aiven-ca.pem -keystore /opt/java/openjdk/lib/security/cacerts -storepass changeit && chmod 644 /opt/java/openjdk/lib/security/cacerts && rm /tmp/aiven-ca.pem
 WORKDIR /app
 COPY --from=build /app/incident-analyzer/target/*.jar app.jar
 EXPOSE 8093
