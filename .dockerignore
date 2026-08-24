@@ -26,6 +26,7 @@ docker/*
 !docker/certs/
 !docker/certs/aiven-ca.pem
 !docker/entrypoint-grouped.sh
+!docker/settings.xml
 
 # Test
 test-output/
