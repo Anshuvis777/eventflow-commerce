@@ -41,7 +41,7 @@ spring:
       username: ${REDIS_USERNAME:default}
       password: ${REDIS_PASSWORD:}
       ssl:
-        enabled: false
+        enabled: ${REDIS_SSL_ENABLED:true}
 
   jpa:
     hibernate:
