@@ -3,6 +3,8 @@ WORKDIR /app
 
 ENV MAVEN_OPTS="-Dmaven.wagon.http.retryHandler.count=5 -Dhttp.keepAlive=false"
 
+COPY docker/settings.xml /app/docker/settings.xml
+
 # Cache Maven dependencies layer
 COPY pom.xml .
 COPY eventflow-common/pom.xml eventflow-common/
@@ -14,7 +16,7 @@ COPY notification-service/pom.xml notification-service/
 COPY incident-detector/pom.xml incident-detector/
 COPY incident-analyzer/pom.xml incident-analyzer/
 COPY incident-query/pom.xml incident-query/
-RUN mvn dependency:go-offline -B || true
+RUN mvn dependency:go-offline -B -s /app/docker/settings.xml || true
 
 # Copy full source code and package
 COPY eventflow-common/ eventflow-common/
@@ -26,7 +28,7 @@ COPY notification-service/ notification-service/
 COPY incident-detector/ incident-detector/
 COPY incident-analyzer/ incident-analyzer/
 COPY incident-query/ incident-query/
-RUN mvn clean package -DskipTests -B
+RUN mvn clean package -DskipTests -B -s /app/docker/settings.xml
 
 FROM eclipse-temurin:21-jre-alpine
 COPY docker/certs/aiven-ca.pem /tmp/aiven-ca.pem
