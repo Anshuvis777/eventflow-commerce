@@ -25,6 +25,8 @@ for svc_pair in $STARTUP_SERVICES; do
   if [ -f "$jar_path" ]; then
     echo "Launching service $svc on port $port..."
     java $JAVA_OPTS -jar "$jar_path" --server.port="$port" &
+    # Stagger startup by 8s to prevent CPU, memory, and Neon DB connection pool contention
+    sleep 8
   else
     echo "Error: Jar for service $svc not found at $jar_path"
     exit 1
