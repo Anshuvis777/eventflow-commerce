@@ -5,7 +5,7 @@ spring:
   application:
     name: inventory-service
   datasource:
-    url: jdbc:postgresql://${NEON_HOST:localhost}:5432/eventflow?sslmode=require&sslfactory=org.postgresql.ssl.NonValidatingFactory
+    url: jdbc:postgresql://${NEON_HOST:localhost}:5432/eventflow?sslmode=require&sslfactory=org.postgresql.ssl.NonValidatingFactory&connectTimeout=10&socketTimeout=30&loginTimeout=10
     username: ${NEON_USER:neondb_owner}
     password: ${NEON_PASSWORD:eventflow_secret}
     driver-class-name: org.postgresql.Driver
@@ -21,6 +21,7 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+        temp.use_jdbc_metadata_defaults: false
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     properties:
