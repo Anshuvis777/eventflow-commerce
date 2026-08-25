@@ -41,6 +41,7 @@ spring:
     locations: classpath:db/migration
     baseline-on-migrate: true
     out-of-order: true
+    connect-retries: 10
     url: ${spring.datasource.url}
     user: ${spring.datasource.username}
     password: ${spring.datasource.password}
