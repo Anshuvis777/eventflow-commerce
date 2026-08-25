@@ -51,5 +51,5 @@ COPY docker/entrypoint-grouped.sh /app/entrypoint-grouped.sh
 RUN chmod +x /app/entrypoint-grouped.sh
 
 USER appuser
-ENV JAVA_OPTS="-Xms48m -Xmx96m -XX:MaxMetaspaceSize=128m -XX:+UseG1GC -XX:MaxGCPauseMillis=50"
+ENV JAVA_OPTS="-Xms24m -Xmx48m -XX:MaxMetaspaceSize=64m -XX:ReservedCodeCacheSize=32m -Xss256k -XX:+UseSerialGC"
 ENTRYPOINT ["sh", "/app/entrypoint-grouped.sh"]
